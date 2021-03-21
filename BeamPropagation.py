@@ -10,6 +10,13 @@ My reference: W.Goodman's Introduction to Fourier Optics - 1996 version
 
 import numpy as np
 import matplotlib.pyplot as plt
+from diffractsim import colour_functions as cf
+
+m = 1.
+cm = 1e-2
+mm = 1e-3
+um = 1e-6
+nm = 1e-9
 
 
 class Propagate():
@@ -26,7 +33,8 @@ class Propagate():
         # the complex form of a wave, the Eq.3-11 of Goodman's book
         # the relationship between intensity and amplitude, the Eq.4-7 of Goodman's book
         self.U0 = img_complex.copy()
-        self.Uz = None
+        self.Uz = img_complex.copy()
+        self.Iz = np.abs(self.Uz) ** 2
 
         # sample frequency, reference: https://blog.csdn.net/tyfwin/article/details/89840956
         # remember y is the direction of axis-0
@@ -36,7 +44,10 @@ class Propagate():
         [self.fx, self.fy] = np.meshgrid(fx, fy)
 
     def AS(self, z):
-        """Angular Spectrum function"""
+        """
+        Angular Spectrum function
+        :param z: the propagation distance
+        """
         # A0, the Eq.3-58 of Goodman's book
         # Az, the Eq.3-66 of Goodman's book
         A0 = np.fft.fftshift(np.fft.fft2(self.U0))
@@ -45,12 +56,13 @@ class Propagate():
         # Uz, the Eq.3-65 of Goodman's book
         self.Uz = np.fft.ifft2(np.fft.ifftshift(Az))
         # # intensity image of the propagate, the Eq.4-7 of Goodman's book
-        # img = np.abs(self.Uz)**2
-        # img = img / np.max(img)
-        return self.Uz
+        self.Iz = np.abs(self.Uz) ** 2
 
     def AScirc(self, z):
-        """Angular Spectrum function"""
+        """
+        Angular Spectrum function with circ function which is shown in the Eq.3-69 of Goodman's book
+        :param z: the propagation distance
+        """
         # A0, the Eq.3-58 of Goodman's book
         A0 = np.fft.fftshift(np.fft.fft2(self.U0))
 
@@ -63,9 +75,25 @@ class Propagate():
         # Uz, the Eq.3-65 of Goodman's book
         self.Uz = np.fft.ifft2(np.fft.ifftshift(Az))
         # # intensity image of the propagate, the Eq.4-7 of Goodman's book
-        # img = np.abs(self.Uz)**2
-        # img = img / np.max(img)
+        self.Iz = np.abs(self.Uz) ** 2
+
+    def propagate(self, z):
+        if z >= 0:
+            self.AS(z)
+        else:
+            self.AScirc(z)
+
+    def getcompleximage(self):
         return self.Uz
+
+    def getintensityimage(self):
+        return self.Iz
+
+    def getrgbimage(self):
+        """For better showing the result of diffraction."""
+        rgb = cf.wavelength_to_sRGB(self.wavelength / nm, 10 * self.Iz.flatten()).T
+        rgb = rgb.reshape((self.U0.shape[0], self.U0.shape[1], 3))
+        return rgb
 
 
 if __name__ == "__main__":
@@ -76,14 +104,16 @@ if __name__ == "__main__":
     As for the experiment 2, we find the reasonable range of propagating distance.
     """
     # =====EXPERIMENT 1=====
-    # the Gaussian beam
+    # the Gaussian beam image
     sigma = 1
     x = np.linspace(-6 * sigma, 6 * sigma, 2 ** 8)
     y = np.linspace(-6 * sigma, 6 * sigma, 2 ** 8)
     X, Y = np.meshgrid(x, y, indexing='ij')
     img = np.exp(-(X ** 2 + Y ** 2) / (2 * sigma ** 2))
     h, w = img.shape
-    pixelsize = np.abs(x[1] - x[0])
+
+    # propagation distance
+    z = 80 * cm
 
     # Fraunhofer Diffraction (Place a circle aperture in beam)
     img_circle = np.copy(img)
@@ -92,12 +122,14 @@ if __name__ == "__main__":
     img_circle = np.abs(img_circle_complex) ** 2
 
     # beam propagation
-    PD = Propagate(img_circle_complex, pixelsize, 0.1)
-    img_circle_complex_out = PD.AS(10)
-    img_circle_out = np.abs(img_circle_complex_out) ** 2
+    PD = Propagate(img_circle_complex, pixelsize=np.abs(x[1]-x[0])*mm, wavelength=632.8*nm)
+    img_circle_rgb = PD.getrgbimage()
+    PD.propagate(z)
+    img_circle_complex_out = PD.getcompleximage()
+    img_circle_out_rgb = PD.getrgbimage()
 
     # Fraunhofer diffraction (Place a rectangle aperture in beam)
-    radius = 8
+    radius = 16
     rec_area_h = [int(np.ceil(h / 2 - radius)), int(np.floor(h / 2 + radius))]
     rec_area_w = [int(np.ceil(w / 2 - radius)), int(np.floor(w / 2 + radius))]
     img_rectangle = np.zeros_like(img)
@@ -107,43 +139,68 @@ if __name__ == "__main__":
     img_rectangle = np.abs(img_rectangle_complex) ** 2
 
     # beam propagation
-    FD = Propagate(img_rectangle_complex, pixelsize, 0.1)
-    img_rectangle_complex_out = FD.AS(0.00002)
-    img_rectangle_out = np.abs(img_rectangle_complex_out) ** 2
+    FD = Propagate(img_rectangle_complex, pixelsize=np.abs(x[1]-x[0])*mm, wavelength=632.8*nm)
+    img_rectangle_rgb = FD.getrgbimage()
+    FD.propagate(z)
+    img_rectangle_complex_out = FD.getcompleximage()
+    img_rectangle_out_rgb = FD.getrgbimage()
 
     # propagate back
-    FD_back = Propagate(img_rectangle_complex_out, pixelsize, 0.1)
-    img_rectangle_complex_back = FD_back.AScirc(-0.00002)
-    img_rectangle_back = np.abs(img_rectangle_complex_back) ** 2
+    FD_back = Propagate(img_rectangle_complex_out, pixelsize=np.abs(x[1]-x[0])*mm, wavelength=632.8*nm)
+    FD_back.propagate(-z)
+    img_rectangle_complex_back = FD_back.getcompleximage()
+    img_rectangle_back_rgb = FD_back.getrgbimage()
 
     fig = plt.figure()
-    ax = fig.add_subplot(2, 2, 1); ax.imshow(img_circle); ax.set_title('Input')
-    ax = fig.add_subplot(2, 2, 2); ax.imshow(img_circle_out); ax.set_title('Diffraction')
-    ax = fig.add_subplot(2, 2, 3); ax.imshow(img_rectangle); ax.set_title('Input')
-    ax = fig.add_subplot(2, 2, 4); ax.imshow(img_rectangle_out); ax.set_title('Diffraction')
+    ax = fig.add_subplot(2, 2, 1)
+    ax.imshow(img_circle_rgb, extent=[-6, 6, -6, 6])
+    ax.set_title('Input'); ax.set_xlabel('[mm]'); ax.set_ylabel('[mm]');
+    ax = fig.add_subplot(2, 2, 2)
+    ax.imshow(img_circle_out_rgb, extent=[-6, 6, -6, 6])
+    ax.set_title('Diffraction (z={:.2f}cm)'.format(z/cm)); ax.set_xlabel('[mm]'); ax.set_ylabel('[mm]')
+    ax = fig.add_subplot(2, 2, 3)
+    ax.imshow(img_rectangle_rgb, extent=[-6, 6, -6, 6])
+    ax.set_title('Input'); ax.set_xlabel('[mm]'); ax.set_ylabel('[mm]')
+    ax = fig.add_subplot(2, 2, 4)
+    ax.imshow(img_rectangle_out_rgb, extent=[-6, 6, -6, 6])
+    ax.set_title('Diffraction (z={:.2f}cm)'.format(z/cm)); ax.set_xlabel('[mm]'); ax.set_ylabel('[mm]')
     plt.suptitle('FRAUNHOFER DIFFRACTION')
     plt.tight_layout()
 
     fig = plt.figure()
-    ax = fig.add_subplot(1, 3, 1); ax.imshow(img_rectangle); ax.set_title('Input')
-    ax = fig.add_subplot(1, 3, 2); ax.imshow(img_rectangle_back); ax.set_title('Back')
-    ax = fig.add_subplot(1, 3, 3); ax.imshow(np.abs(img_rectangle_complex - img_rectangle_back)); ax.set_title('Error')
-    plt.suptitle('PROPAGATION BACK')
+    ax = fig.add_subplot(2, 2, 1)
+    ax.imshow(img_rectangle_rgb, extent=[-6, 6, -6, 6])
+    ax.set_title('Input'); ax.set_xlabel('[mm]'); ax.set_ylabel('[mm]')
+    ax = fig.add_subplot(2, 2, 2)
+    ax.imshow(img_rectangle_out_rgb, extent=[-6, 6, -6, 6])
+    ax.set_title('Diffraction (z={:.2f}cm)'.format(z/cm)); ax.set_xlabel('[mm]'); ax.set_ylabel('[mm]')
+    ax = fig.add_subplot(2, 2, 3)
+    ax.imshow(img_rectangle_back_rgb, extent=[-6, 6, -6, 6])
+    ax.set_title('Back'); ax.set_xlabel('[mm]'); ax.set_ylabel('[mm]')
+    ax = fig.add_subplot(2, 2, 4)
+    ax.imshow(np.abs(img_rectangle_complex)**2 - FD_back.getintensityimage(), cmap=plt.cm.gray, extent=[-6, 6, -6, 6])
+    ax.set_title('intensity Error(input - back)'); ax.set_xlabel('[mm]'); ax.set_ylabel('[mm]')
+    plt.suptitle('PROPAGATION BACK (z={:.2f}cm)'.format(z/cm))
     plt.tight_layout()
 
     # =====EXPERIMENT 2=====
     img_rectangle_amplitude = np.abs(img_rectangle_complex)
     img_rectangle_phase = np.angle(img_rectangle_complex)
 
-    zs = np.linspace(0, 1e12, 1000)
+    zs = np.linspace(0, 100, 101)
     MSEs = {'real': [], 'imag': [], 'amplitude': [], 'phase': []}
-    for z in zs:
-        FD = Propagate(img_rectangle_complex, pixelsize, 0.1)
-        img_rectangle_complex_out = FD.AScirc(z)
+    for (i, z) in enumerate(zs):
+        FD = Propagate(img_rectangle_complex, pixelsize=np.abs(x[1]-x[0])*mm, wavelength=632.8*nm)
+        FD.propagate(z * cm)
+        img_rectangle_complex_out = FD.getcompleximage()
+        img_rectangle_out_rgb = FD.getrgbimage()
 
-        FD_back = Propagate(img_rectangle_complex_out, pixelsize, 0.1)
-        img_rectangle_complex_back = FD.AScirc(-z)
+        FD_back = Propagate(img_rectangle_complex_out, pixelsize=np.abs(x[1]-x[0])*mm, wavelength=632.8*nm)
+        FD_back.propagate(-z * cm)
+        img_rectangle_complex_back = FD.getcompleximage()
+        img_rectangle_back_rgb = FD_back.getrgbimage()
 
+        # error
         ErrorMatrix_complex = img_rectangle_complex - img_rectangle_complex_back
         ErrorMatrix_real = np.real(ErrorMatrix_complex)
         ErrorMatrix_imag = np.imag(ErrorMatrix_complex)
@@ -161,6 +218,35 @@ if __name__ == "__main__":
         MSEs['amplitude'].append(MSE_amplitude)
         MSEs['phase'].append(MSE_phase)
 
+        # fig = plt.figure()
+        # ax = fig.add_subplot(2, 2, 1)
+        # ax.imshow(img_rectangle_rgb, extent=[-6, 6, -6, 6])
+        # ax.set_title('Input')
+        # ax.set_xlabel('[mm]')
+        # ax.set_ylabel('[mm]')
+        # ax = fig.add_subplot(2, 2, 2)
+        # ax.imshow(img_rectangle_out_rgb, extent=[-6, 6, -6, 6])
+        # ax.set_title('Diffraction (z={:.1f}cm)'.format(z))
+        # ax.set_xlabel('[mm]')
+        # ax.set_ylabel('[mm]')
+        # ax = fig.add_subplot(2, 2, 3)
+        # ax.imshow(img_rectangle_back_rgb, extent=[-6, 6, -6, 6])
+        # ax.set_title('Back')
+        # ax.set_xlabel('[mm]')
+        # ax.set_ylabel('[mm]')
+        # ax = fig.add_subplot(2, 2, 4)
+        # ax.imshow(np.abs(img_rectangle_complex) ** 2 - FD_back.getintensityimage(), cmap=plt.cm.gray,
+        #           extent=[-6, 6, -6, 6])
+        # ax.set_title('intensity Error(input - back)')
+        # ax.set_xlabel('[mm]')
+        # ax.set_ylabel('[mm]')
+        # plt.suptitle('PROPAGATION BACK (z={:.1f}cm)'.format(z))
+        # plt.tight_layout()
+        #
+        # plt.savefig('./save/ep_{:03d}'.format(i))
+        # plt.close()
+
+    # plot MSE curve
     fig = plt.figure()
     ax = fig.add_subplot(2, 1, 1)
     ax.plot(zs, MSEs['real'], label='real MSE')
@@ -173,7 +259,9 @@ if __name__ == "__main__":
     plt.suptitle('the error between input image and the propagation back image')
     plt.tight_layout()
 
+    print('Finish!!!')
     plt.show()
+
 
 
 
