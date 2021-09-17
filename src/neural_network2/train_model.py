@@ -109,8 +109,10 @@ def train_net(net,
                 input_data = input_data.to(device=device, dtype=torch.float32)
                 target_data = target_data.to(device=device, dtype=torch.float32)
 
-                pred_data = net(input_data, angle)
+                pred_data, pred_supplement = net(input_data, angle)
                 loss = criterion(pred_data, target_data)
+                supplement_loss = criterion(pred_supplement, target_data)
+                loss = loss + 0.1 * supplement_loss
                 epoch_loss += loss.item()
                 writer.add_scalar('Loss/train', loss.item(), global_step)
                 writer.add_scalar('Epoch', epoch, global_step)
@@ -127,11 +129,7 @@ def train_net(net,
                 pbar.update(input_data.shape[0])
                 global_step += 1
                 if global_step % (n_train // (10 * batch_size)) == 0:  # print for every 10 batches
-                    # for tag, value in net.named_parameters():
-                    #     tag = tag.replace('.', '/')
-                    #     writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
-                    #     writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
-                    val_score = eval_net(net, val_loader, device, criterion)
+                    val_score = eval_net(net, val_loader, device, middleout=True)
                     scheduler.step(val_score)  # adjust the learning rate
                     writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 

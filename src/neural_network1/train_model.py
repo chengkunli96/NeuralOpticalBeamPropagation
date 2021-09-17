@@ -125,7 +125,7 @@ def train_net(net,
                 pbar.update(input_data.shape[0])
                 global_step += 1
                 if global_step % (n_train // (10 * batch_size)) == 0:  # print for every 10 percent
-                    val_score = eval_net(net, val_loader, device, criterion, middleout=True)
+                    val_score = eval_net(net, val_loader, device, middleout=True)
                     scheduler.step(val_score)  # adjust the learning rate
                     writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 
