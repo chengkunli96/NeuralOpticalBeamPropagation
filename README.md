@@ -69,6 +69,17 @@ cd ./src/neural_network2
 python train_model.py --epochs 10  --batch-size 4  --learning-rate 0.001 --validation 20 --device 0
 ```
 
+## Evaluation
+``` bash
+# for the basic goal
+cd ./src/neural_network1
+python eval_model.py --amplitude [amplitude_input_image] --phase [phase_input_image] --load [checkpoints.pth] -- device 0
+
+# for the extension content
+cd ./src/neural_network2
+python eval_model.py --amplitude [amplitude_input_image] --phase [phase_input_image] --tilted_angle [the_tilted_angle] --load [checkpoints.pth] -- device 0
+```
+
 
 
 
