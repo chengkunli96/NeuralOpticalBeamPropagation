@@ -1,7 +1,7 @@
 # Neural Optical Beam Propagation
 ![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-[![GitHub stars](https://img.shields.io/github/stars/mremilien/NeuralOpticalBeamPropagation.svg?style=social)](https://github.com/mremilien/NeuralOpticalBeamPropagation/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/chengkunli96/NeuralOpticalBeamPropagation.svg?style=social)](https://github.com/chengkunli96/NeuralOpticalBeamPropagation/stargazers)
 
 This reporsitory contains the Pytorch implementation of the thesis **"Neural Optical Beam Propagation"** which is actually my master dissertation at University of College London (UCL) supervised by Dr.Kaan Aksit. The main goal of this thesis is to simulate the calculation of beam propagation on the tilted planes by a deep learning method. And more details could be found in my [dissertation](https://github.com/mremilien/NeuralOpticalBeamPropagation/blob/main/docs/neural_optical_beam_propagation.pdf).
 
